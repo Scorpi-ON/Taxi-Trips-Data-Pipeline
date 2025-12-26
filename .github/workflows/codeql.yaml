@@ -1,0 +1,44 @@
+name: CodeQL (Python, GH Actions)
+permissions:
+  security-events: write
+  packages: read
+  actions: read
+  contents: read
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**.py"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "**.py"
+      - ".github/workflows/**"
+  schedule:
+    - cron: "0 0 * * 1"
+
+jobs:
+  analyze:
+    runs-on: 'ubuntu-latest'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python", "actions"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        dependency-caching: true
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{ matrix.language }}"

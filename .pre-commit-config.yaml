@@ -1,0 +1,28 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+
+      - id: ruff-check-and-fix
+        name: Ruff check and fix
+        entry: uv run ruff check
+        args: [--fix]
+        language: system
+        types: [python]
+
+      - id: pyright-type-check
+        name: Pyright type check
+        entry: uv run -m pyright
+        language: system
+        types: [python]
+
+  - repo: "https://github.com/astral-sh/uv-pre-commit"
+    rev: 0.9.18
+    hooks:
+      - id: uv-lock
+        name: Update uv.lock
+        files: ^pyproject\.toml$

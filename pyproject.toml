@@ -1,0 +1,44 @@
+[project]
+name = "taxi-trips-data-pipeline"
+version = "0.0.1"
+requires-python = ">=3.14"
+dependencies = [
+    "kagglehub[pandas-datasets]>=0.3.13",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pyright>=1.1.407",
+    "ruff>=0.12.10",
+]
+
+[tool.pyright]
+strict = []
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",  # Ruff formatter may conflict with this rule
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # Missing docstring is ok
+    "D203",  # Conflicting with D211 which is preferred
+    "D212",  # Conflicting with D213 which is preferred
+    "E402",  # Sometimes module definitions not at top of the file is ok
+    "FBT001", "FBT002",  # Boolean positional args are ok
+    "INP001",  # Namespace packages are ok
+    "RET504",  # Assignments before return can improve code readability
+    "RUF001",  # Russian letters are ok
+    "T201",    # print() is ok
+    "TRY003",  # Have no desire to create custom exception classes when there are suitable default ones, lol
+]
+
+[tool.ruff.format]
+line-ending = "lf"
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
