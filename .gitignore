@@ -9,3 +9,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Airflow
+logs/
+
+# Env variables
+.env
