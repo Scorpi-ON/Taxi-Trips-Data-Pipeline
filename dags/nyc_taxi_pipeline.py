@@ -24,40 +24,40 @@ DEFAULT_ARGS = {
 }
 
 
-def _count_csv_rows(path: Path) -> int:
-    with path.open("r", encoding="utf-8") as f:
-        return max(sum(1 for _ in f) - 1, 0)
-
-
 @task()
 def create_and_fill_raw_table() -> None:
-    print("Rows in CSV:", _count_csv_rows(CSV_PATH))
-
     hook = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID)
 
-    with hook.get_conn() as conn:
-        with conn.cursor() as cur:
-            cur = cast("psycopg2.extensions.cursor", cur)
+    with (
+        hook.get_conn() as conn,
+        conn.cursor() as cur,
+        CSV_PATH.open("r", encoding="utf-8") as csv_file,
+    ):
+        print("Rows in CSV:", max(sum(1 for _ in csv_file) - 1, 0))
+        csv_file.seek(0)
 
-            with CSV_PATH.open("r", encoding="utf-8") as csv_file:
-                header = "trip_id" + csv_file.readline()
-                columns = [f'"{col.strip()}" TEXT' for col in header.split(",")]
-                print(columns)
-                create_table_sql = f"""
-                CREATE TABLE {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} (
-                    {",\n".join(columns)}
-                )
-                """
-                print(create_table_sql)
-                cur.execute(create_table_sql)
-                conn.commit()
+        cur = cast("psycopg2.extensions.cursor", cur)
+        header = "trip_id" + csv_file.readline()
+        columns = [f'"{col.strip()}" TEXT' for col in header.split(",")]
+        print(columns)
+        create_table_sql = f"""
+        CREATE TABLE {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} (
+            {",\n".join(columns)}
+        )
+        """
+        print(create_table_sql)
+        cur.execute(create_table_sql)
+        conn.commit()
 
-                csv_file.seek(0)
+        csv_file.seek(0)
 
-                cur.copy_expert(
-                    f"COPY {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} FROM STDIN WITH (FORMAT csv, HEADER true)",
-                    csv_file,
-                )
+        cur.copy_expert(
+            f"""
+            COPY {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME}
+            FROM STDIN WITH (FORMAT csv, HEADER true)
+            """,
+            csv_file,
+        )
         conn.commit()
 
     loaded_row_count = hook.get_first(
