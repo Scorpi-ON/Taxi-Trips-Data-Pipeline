@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: nyc_taxi_trips
+
+models:
+  - name: stg_nyc_taxi_trips
+    columns:
+      - name: trip_id
+        tests:
+          - unique
+      - name: trip_date
+        tests:
+          - not_null
+
+  - name: mart_taxi_daily
+    columns:
+      - name: revenue_sum
+        tests:
+          - not_null

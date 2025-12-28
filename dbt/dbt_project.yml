@@ -1,0 +1,26 @@
+name: "taxi_trips"
+version: "1.0.0"
+config-version: 2
+
+profile: "taxi_trips"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  taxi_trips:
+    staging:
+      +schema: stg
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table

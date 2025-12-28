@@ -1,0 +1,15 @@
+taxi_trips:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'strong_password') }}"
+      port: 5432
+      dbname: "{{ env_var('POSTGRES_DB', 'TaxiTripsDB') }}"
+      schema: "stg"
+      threads: 4
+      connect_timeout: 10
+      keepalives_idle: 0
+      sslmode: prefer

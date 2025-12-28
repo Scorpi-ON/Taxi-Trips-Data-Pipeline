@@ -15,3 +15,10 @@ logs/
 
 # Env variables
 .env
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/dbt_internal_packages/
+dbt/logs/
+dbt/.user.yml
