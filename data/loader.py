@@ -1,10 +1,9 @@
 from pathlib import Path
-from typing import Final
 
 import kagglehub
 
-DST_FILE_PATH: Final[Path] = Path(__file__).parent / "nyc_taxi_raw.csv"
-LINES_LIMIT: Final[int] = 50000
+DST_FILE_PATH = Path(__file__).parent / "nyc_taxi_raw.csv"
+LINES_LIMIT = 50000
 
 print("Downloading dataset...")
 src_file_path = (
