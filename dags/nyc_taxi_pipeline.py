@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     import psycopg2
 
 DAG_ID = "nyc_taxi_pipeline"
+POSTGRES_CONN_ID = "postgres_default"
+
 RAW_SCHEMA_NAME = "raw"
 RAW_TABLE_NAME = "nyc_taxi_trips"
-CSV_PATH = Path("/opt/airflow/dags/../data/nyc_taxi_raw.csv")
+CSV_PATH = Path("/opt/airflow/data/nyc_taxi_raw.csv")
 MSC_TZ = timezone(timedelta(hours=3))
-
-POSTGRES_CONN_ID = "postgres_default"
 
 DEFAULT_ARGS = {
     "owner": "airflow",
@@ -30,49 +30,41 @@ def _count_csv_rows(path: Path) -> int:
 
 
 @task()
-def load_raw() -> None:
+def create_and_fill_raw_table() -> None:
+    print("Rows in CSV:", _count_csv_rows(CSV_PATH))
+
     hook = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID)
-    csv_row_count = _count_csv_rows(CSV_PATH)
 
     with hook.get_conn() as conn:
         with conn.cursor() as cur:
             cur = cast("psycopg2.extensions.cursor", cur)
-            cur.execute(f"TRUNCATE TABLE {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME}")
-            with CSV_PATH.open("r", encoding="utf-8") as f:
+
+            with CSV_PATH.open("r", encoding="utf-8") as csv_file:
+                header = "trip_id" + csv_file.readline()
+                columns = [f'"{col.strip()}" TEXT' for col in header.split(",")]
+                print(columns)
+                create_table_sql = f"""
+                CREATE TABLE {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} (
+                    {",\n".join(columns)}
+                )
+                """
+                print(create_table_sql)
+                cur.execute(create_table_sql)
+                conn.commit()
+
+                csv_file.seek(0)
+
                 cur.copy_expert(
-                    f"""
-                    COPY {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} (
-                        trip_id,
-                        vendor_id,
-                        pickup_datetime,
-                        dropoff_datetime,
-                        passenger_count,
-                        trip_distance,
-                        ratecode_id,
-                        store_and_fwd_flag,
-                        pu_location_id,
-                        do_location_id,
-                        payment_type,
-                        fare_amount,
-                        extra,
-                        mta_tax,
-                        tip_amount,
-                        tolls_amount,
-                        improvement_surcharge,
-                        total_amount
-                    )
-                    FROM STDIN WITH (FORMAT csv, HEADER true)
-                    """,
-                    f,
+                    f"COPY {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} FROM STDIN WITH (FORMAT csv, HEADER true)",
+                    csv_file,
                 )
         conn.commit()
 
-    loaded = hook.get_first(
+    loaded_row_count = hook.get_first(
         f"SELECT COUNT(*) FROM {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME}",  # noqa: S608
     )[0]
 
-    print("Rows in CSV:", csv_row_count)
-    print("Rows loaded:", loaded)
+    print("Rows loaded:", loaded_row_count)
 
 
 with DAG(
@@ -82,41 +74,20 @@ with DAG(
     catchup=False,
     default_args=DEFAULT_ARGS,
 ):
-    create_raw_schema = SQLExecuteQueryOperator(
-        task_id="create_raw_schema",
+    drop_old_table = SQLExecuteQueryOperator(
+        task_id="drop_old_table",
+        conn_id=POSTGRES_CONN_ID,
+        sql=f"DROP TABLE IF EXISTS {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} CASCADE",
+    )
+
+    create_schema = SQLExecuteQueryOperator(
+        task_id="create_schema",
         conn_id=POSTGRES_CONN_ID,
         sql=f"CREATE SCHEMA IF NOT EXISTS {RAW_SCHEMA_NAME}",
     )
 
-    create_raw_table = SQLExecuteQueryOperator(
-        task_id="create_raw_table",
-        conn_id=POSTGRES_CONN_ID,
-        sql=f"""
-        CREATE TABLE IF NOT EXISTS {RAW_SCHEMA_NAME}.{RAW_TABLE_NAME} (
-            trip_id BIGINT PRIMARY KEY,
-            vendor_id INTEGER,
-            pickup_datetime TIMESTAMP,
-            dropoff_datetime TIMESTAMP,
-            passenger_count INTEGER,
-            trip_distance NUMERIC,
-            ratecode_id INTEGER,
-            store_and_fwd_flag TEXT,
-            pu_location_id INTEGER,
-            do_location_id INTEGER,
-            payment_type INTEGER,
-            fare_amount NUMERIC,
-            extra NUMERIC,
-            mta_tax NUMERIC,
-            tip_amount NUMERIC,
-            tolls_amount NUMERIC,
-            improvement_surcharge NUMERIC,
-            total_amount NUMERIC
-        )
-        """,
-    )
-
     chain(
-        create_raw_schema,
-        create_raw_table,
-        load_raw(),
+        drop_old_table,
+        create_schema,
+        create_and_fill_raw_table(),
     )
