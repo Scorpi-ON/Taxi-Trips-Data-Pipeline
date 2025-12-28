@@ -77,6 +77,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/4e/430de7acec52b97ac960b28bd20645540015779fb258a375e86e39d6cdb4/apache_airflow-3.1.5-py3-none-any.whl", hash = "sha256:cf2316a819d8888d05249488d38e977d6f1ccb4c8d310b55fd4361e3107383e7", size = 12721, upload-time = "2025-12-12T21:36:54.736Z" },
 ]
 
+[package.optional-dependencies]
+postgres = [
+    { name = "apache-airflow-providers-postgres" },
+]
+
 [[package]]
 name = "apache-airflow-core"
 version = "3.1.5"
@@ -1838,8 +1843,7 @@ name = "taxi-trips-data-pipeline"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
-    { name = "apache-airflow" },
-    { name = "apache-airflow-providers-postgres" },
+    { name = "apache-airflow", extra = ["postgres"] },
     { name = "kagglehub", extra = ["pandas-datasets"] },
 ]
 
@@ -1852,8 +1856,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apache-airflow", specifier = "==3.1.5" },
-    { name = "apache-airflow-providers-postgres", specifier = ">=6.5.1" },
+    { name = "apache-airflow", extras = ["postgres"], specifier = "==3.1.5" },
     { name = "kagglehub", extras = ["pandas-datasets"], specifier = ">=0.3.13" },
 ]
 

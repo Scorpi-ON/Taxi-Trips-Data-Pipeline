@@ -3,8 +3,7 @@ name = "taxi-trips-data-pipeline"
 version = "0.0.1"
 requires-python = ">=3.14"
 dependencies = [
-    "apache-airflow==3.1.5",
-    "apache-airflow-providers-postgres>=6.5.1",
+    "apache-airflow[postgres]==3.1.5",
     "kagglehub[pandas-datasets]>=0.3.13",
 ]
 
