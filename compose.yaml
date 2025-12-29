@@ -112,7 +112,7 @@ services:
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
+    image: redis:7.2-alpine
     expose:
       - 6379
     healthcheck:
@@ -252,8 +252,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
     environment:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
       SUPERSET_DATABASE_URI: ${SUPERSET_DATABASE_URI}
@@ -264,10 +262,12 @@ services:
       SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL}
       SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME}
       SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ${AIRFLOW_PROJ_DIR:-.}/superset/assets:/app/pythonpath/assets:ro
+    entrypoint: /bin/sh
     command:
-      - /bin/sh
       - -c
       - |
         superset db upgrade
@@ -278,6 +278,34 @@ services:
           --email "${SUPERSET_ADMIN_EMAIL}" \
           --password "${SUPERSET_ADMIN_PASSWORD}" || true
         superset init
+        patched_zip="$$(python - <<'PY'
+        import os
+        import tempfile
+        import urllib.parse
+        import zipfile
+
+        src = "/app/pythonpath/assets/nyc_taxi_trips.zip"
+        work_dir = tempfile.mkdtemp()
+        dst = os.path.join(work_dir, "nyc_taxi_trips_patched.zip")
+        password = urllib.parse.quote(os.environ.get("POSTGRES_PASSWORD", ""), safe="")
+
+        with zipfile.ZipFile(src, "r") as zin, zipfile.ZipFile(
+            dst, "w", compression=zipfile.ZIP_DEFLATED
+        ) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if "/databases/" in item.filename and item.filename.endswith(".yaml"):
+                    text = data.decode("utf-8")
+                    if "XXXXXXXXXX" in text:
+                        text = text.replace("XXXXXXXXXX", password)
+                    data = text.encode("utf-8")
+                zout.writestr(item, data)
+
+        print(dst)
+        PY
+        )"
+        superset import-dashboards -p "$$patched_zip" -u "${SUPERSET_ADMIN_USERNAME}" || echo "Could not import the dashboard for some reason"
+        rm -rf "$$(dirname "$$patched_zip")"
 
   superset:
     image: apache/superset:4.0.2
@@ -386,5 +414,21 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
 
+  airflow-run-dag:
+    <<: *airflow-common
+    depends_on:
+      airflow-apiserver:
+        condition: service_healthy
+      airflow-scheduler:
+        condition: service_healthy
+    environment:
+      <<: *airflow-common-env
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        airflow dags unpause nyc_taxi_pipeline
+        airflow dags trigger nyc_taxi_pipeline
+        
 volumes:
   postgres-db-volume:
