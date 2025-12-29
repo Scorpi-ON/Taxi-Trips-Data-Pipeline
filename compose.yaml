@@ -99,6 +99,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ${AIRFLOW_PROJ_DIR:-.}/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     ports:
      - "5432:5432"
     healthcheck:
@@ -245,6 +246,53 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  superset-init:
+    image: apache/superset:4.0.2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_DATABASE_URI: ${SUPERSET_DATABASE_URI}
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME}
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        superset db upgrade
+        superset fab create-admin \
+          --username "${SUPERSET_ADMIN_USERNAME}" \
+          --firstname "${SUPERSET_ADMIN_FIRSTNAME}" \
+          --lastname "${SUPERSET_ADMIN_LASTNAME}" \
+          --email "${SUPERSET_ADMIN_EMAIL}" \
+          --password "${SUPERSET_ADMIN_PASSWORD}" || true
+        superset init
+
+  superset:
+    image: apache/superset:4.0.2
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_DATABASE_URI: ${SUPERSET_DATABASE_URI}
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_LOAD_EXAMPLES: "no"
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    ports:
+      - "8088:8088"
   
   airflow-init:
     <<: *airflow-common
