@@ -9,7 +9,7 @@ from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import DAG, chain, task
 
 if TYPE_CHECKING:
-    import psycopg2
+    import psycopg2.extensions
 
 DAG_ID = "nyc_taxi_pipeline"
 POSTGRES_CONN_ID = "postgres_default"
